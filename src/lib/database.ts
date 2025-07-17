@@ -71,6 +71,11 @@ export interface MediaFile {
 export const db = {
   // Document operations
   async getDocuments(userId: string): Promise<Document[]> {
+    if (!userId) {
+      console.warn('No user ID provided to getDocuments')
+      return []
+    }
+
     try {
       const { data, error } = await supabase
         .from('documents')
@@ -80,13 +85,15 @@ export const db = {
 
       if (error) {
         console.error('Failed to load documents:', error)
-        throw error
+        // Return empty array instead of throwing for better UX
+        return []
       }
 
       return data || []
     } catch (error) {
       console.error('Error getting documents:', error)
-      throw new Error('Failed to load documents')
+      // Return empty array instead of throwing for better UX
+      return []
     }
   },
 

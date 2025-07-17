@@ -27,18 +27,56 @@ function App() {
   const [publishDescription, setPublishDescription] = useState('')
 
   useEffect(() => {
-    // Initialize Supabase auth
-    const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      setUser(session?.user || null)
-      setLoading(false)
+    // Initialize Supabase auth with proper error handling
+    const initializeAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession()
+        if (error) {
+          console.error('Error getting session:', error)
+        }
+        setUser(session?.user || null)
+      } catch (error) {
+        console.error('Failed to initialize auth:', error)
+        setUser(null)
+      } finally {
+        setLoading(false)
+      }
     }
 
-    getSession()
+    initializeAuth()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setUser(session?.user || null)
+      async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.email)
+        
+        if (event === 'SIGNED_IN' && session?.user) {
+          setUser(session.user)
+          // Ensure user profile exists
+          try {
+            const { error } = await supabase
+              .from('users')
+              .upsert({
+                id: session.user.id,
+                email: session.user.email,
+                full_name: session.user.user_metadata?.full_name || session.user.email,
+                avatar_url: session.user.user_metadata?.avatar_url,
+                updated_at: new Date().toISOString()
+              }, { onConflict: 'id' })
+            
+            if (error) {
+              console.error('Error upserting user profile:', error)
+            }
+          } catch (error) {
+            console.error('Failed to create user profile:', error)
+          }
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null)
+          setDocuments([])
+          setCurrentDocument(null)
+        } else {
+          setUser(session?.user || null)
+        }
+        
         setLoading(false)
       }
     )

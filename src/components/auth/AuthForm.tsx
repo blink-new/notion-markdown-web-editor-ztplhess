@@ -15,30 +15,57 @@ export function AuthForm() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    if (!email || !password) {
+      toast({
+        title: "Error",
+        description: "Please fill in all fields",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (password.length < 6) {
+      toast({
+        title: "Error",
+        description: "Password must be at least 6 characters long",
+        variant: "destructive"
+      })
+      return
+    }
+
     setLoading(true)
 
     try {
-      const { error } = await supabase.auth.signUp({
-        email,
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
         password,
+        options: {
+          emailRedirectTo: window.location.origin
+        }
       })
 
       if (error) {
+        console.error('Signup error:', error)
         toast({
-          title: "Error",
-          description: error.message,
+          title: "Signup Error",
+          description: error.message || "Failed to create account",
           variant: "destructive"
         })
-      } else {
+      } else if (data.user) {
         toast({
           title: "Success",
-          description: "Account created successfully! You can now sign in.",
+          description: "Account created successfully! You are now signed in.",
         })
+        // Clear form
+        setEmail('')
+        setPassword('')
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Unexpected signup error:', error)
       toast({
         title: "Error",
-        description: "An unexpected error occurred",
+        description: error.message || "An unexpected error occurred during signup",
         variant: "destructive"
       })
     } finally {
@@ -48,25 +75,45 @@ export function AuthForm() {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    if (!email || !password) {
+      toast({
+        title: "Error",
+        description: "Please fill in all fields",
+        variant: "destructive"
+      })
+      return
+    }
+
     setLoading(true)
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
         password,
       })
 
       if (error) {
+        console.error('Signin error:', error)
         toast({
-          title: "Error",
-          description: error.message,
+          title: "Sign In Error",
+          description: error.message || "Failed to sign in",
           variant: "destructive"
         })
+      } else if (data.user) {
+        toast({
+          title: "Success",
+          description: "Signed in successfully!",
+        })
+        // Clear form
+        setEmail('')
+        setPassword('')
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Unexpected signin error:', error)
       toast({
         title: "Error",
-        description: "An unexpected error occurred",
+        description: error.message || "An unexpected error occurred during sign in",
         variant: "destructive"
       })
     } finally {
