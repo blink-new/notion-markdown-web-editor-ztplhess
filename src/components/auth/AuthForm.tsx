@@ -37,6 +37,9 @@ export function AuthForm() {
     setLoading(true)
 
     try {
+      // Clear any existing session first
+      await supabase.auth.signOut()
+      
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
@@ -47,9 +50,18 @@ export function AuthForm() {
 
       if (error) {
         console.error('Signup error:', error)
+        let errorMessage = error.message
+        
+        // Handle specific error cases
+        if (error.message?.includes('User already registered')) {
+          errorMessage = "An account with this email already exists. Please sign in instead."
+        } else if (error.message?.includes('Invalid email')) {
+          errorMessage = "Please enter a valid email address."
+        }
+        
         toast({
           title: "Signup Error",
-          description: error.message || "Failed to create account",
+          description: errorMessage,
           variant: "destructive"
         })
       } else if (data.user) {
@@ -88,6 +100,9 @@ export function AuthForm() {
     setLoading(true)
 
     try {
+      // Clear any existing session first
+      await supabase.auth.signOut()
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
@@ -95,9 +110,20 @@ export function AuthForm() {
 
       if (error) {
         console.error('Signin error:', error)
+        let errorMessage = error.message
+        
+        // Handle specific error cases
+        if (error.message?.includes('Invalid login credentials')) {
+          errorMessage = "Invalid email or password. Please check your credentials and try again."
+        } else if (error.message?.includes('Email not confirmed')) {
+          errorMessage = "Please check your email and confirm your account before signing in."
+        } else if (error.message?.includes('Too many requests')) {
+          errorMessage = "Too many sign-in attempts. Please wait a moment and try again."
+        }
+        
         toast({
           title: "Sign In Error",
-          description: error.message || "Failed to sign in",
+          description: errorMessage,
           variant: "destructive"
         })
       } else if (data.user) {

@@ -77,6 +77,13 @@ export const db = {
     }
 
     try {
+      // Check if user is authenticated first
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user) {
+        console.warn('No authenticated session for getDocuments')
+        return []
+      }
+
       const { data, error } = await supabase
         .from('documents')
         .select('*')
@@ -85,14 +92,17 @@ export const db = {
 
       if (error) {
         console.error('Failed to load documents:', error)
-        // Return empty array instead of throwing for better UX
+        // Handle auth errors specifically
+        if (error.code === 'PGRST301' || error.message?.includes('JWT')) {
+          console.warn('Authentication error in getDocuments, signing out')
+          await supabase.auth.signOut()
+        }
         return []
       }
 
       return data || []
     } catch (error) {
       console.error('Error getting documents:', error)
-      // Return empty array instead of throwing for better UX
       return []
     }
   },
@@ -123,6 +133,12 @@ export const db = {
 
   async createDocument(document: Partial<Document>): Promise<Document> {
     try {
+      // Check if user is authenticated first
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user) {
+        throw new Error('User not authenticated')
+      }
+
       const newDoc = {
         user_id: document.user_id!,
         title: document.title || 'Untitled Document',
@@ -147,6 +163,12 @@ export const db = {
 
       if (error) {
         console.error('Failed to create document:', error)
+        // Handle auth errors specifically
+        if (error.code === 'PGRST301' || error.message?.includes('JWT')) {
+          console.warn('Authentication error in createDocument, signing out')
+          await supabase.auth.signOut()
+          throw new Error('Authentication expired. Please sign in again.')
+        }
         throw error
       }
 
@@ -159,6 +181,12 @@ export const db = {
 
   async updateDocument(id: string, updates: Partial<Document>): Promise<Document> {
     try {
+      // Check if user is authenticated first
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user) {
+        throw new Error('User not authenticated')
+      }
+
       const { data, error } = await supabase
         .from('documents')
         .update({
@@ -171,6 +199,12 @@ export const db = {
 
       if (error) {
         console.error('Failed to update document:', error)
+        // Handle auth errors specifically
+        if (error.code === 'PGRST301' || error.message?.includes('JWT')) {
+          console.warn('Authentication error in updateDocument, signing out')
+          await supabase.auth.signOut()
+          throw new Error('Authentication expired. Please sign in again.')
+        }
         throw error
       }
 

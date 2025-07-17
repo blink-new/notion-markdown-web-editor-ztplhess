@@ -27,19 +27,35 @@ function App() {
   const [publishDescription, setPublishDescription] = useState('')
 
   useEffect(() => {
+    let mounted = true
+
     // Initialize Supabase auth with proper error handling
     const initializeAuth = async () => {
       try {
+        // Clear any existing invalid tokens first
         const { data: { session }, error } = await supabase.auth.getSession()
+        
         if (error) {
-          console.error('Error getting session:', error)
+          console.warn('Session error (will clear):', error.message)
+          // Clear invalid session
+          await supabase.auth.signOut()
+          if (mounted) {
+            setUser(null)
+            setLoading(false)
+          }
+          return
         }
-        setUser(session?.user || null)
+
+        if (mounted) {
+          setUser(session?.user || null)
+          setLoading(false)
+        }
       } catch (error) {
         console.error('Failed to initialize auth:', error)
-        setUser(null)
-      } finally {
-        setLoading(false)
+        if (mounted) {
+          setUser(null)
+          setLoading(false)
+        }
       }
     }
 
@@ -49,8 +65,12 @@ function App() {
       async (event, session) => {
         console.log('Auth state changed:', event, session?.user?.email)
         
+        if (!mounted) return
+
         if (event === 'SIGNED_IN' && session?.user) {
           setUser(session.user)
+          setLoading(false)
+          
           // Ensure user profile exists
           try {
             const { error } = await supabase
@@ -58,7 +78,7 @@ function App() {
               .upsert({
                 id: session.user.id,
                 email: session.user.email,
-                full_name: session.user.user_metadata?.full_name || session.user.email,
+                display_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
                 avatar_url: session.user.user_metadata?.avatar_url,
                 updated_at: new Date().toISOString()
               }, { onConflict: 'id' })
@@ -73,15 +93,20 @@ function App() {
           setUser(null)
           setDocuments([])
           setCurrentDocument(null)
+          setLoading(false)
+        } else if (event === 'TOKEN_REFRESHED') {
+          setUser(session?.user || null)
         } else {
           setUser(session?.user || null)
+          setLoading(false)
         }
-        
-        setLoading(false)
       }
     )
 
-    return () => subscription.unsubscribe()
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   const loadDocuments = useCallback(async () => {
