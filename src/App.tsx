@@ -21,7 +21,7 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [documents, setDocuments] = useState<Document[]>([])
   const [currentDocument, setCurrentDocument] = useState<Document | null>(null)
-  const [editorMode, setEditorMode] = useState<'rich' | 'markdown'>('rich')
+  const [editorMode, setEditorMode] = useState<'blocks' | 'markdown'>('blocks')
   const [publishDialogOpen, setPublishDialogOpen] = useState(false)
   const [publishTitle, setPublishTitle] = useState('')
   const [publishDescription, setPublishDescription] = useState('')
@@ -297,7 +297,7 @@ function App() {
               </div>
               
               <div className="h-full bg-white dark:bg-gray-900">
-                {editorMode === 'rich' ? (
+                {editorMode === 'blocks' ? (
                   <BlockEditor
                     content={currentDocument.markdown_content || ''}
                     onChange={(content) => saveDocument(currentDocument.title, content)}

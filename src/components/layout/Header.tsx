@@ -17,6 +17,7 @@ import {
   User
 } from 'lucide-react'
 import { useState } from 'react'
+import { SettingsDialog } from '@/components/settings/SettingsDialog'
 
 interface HeaderProps {
   onPublish: () => void
@@ -31,6 +32,7 @@ interface HeaderProps {
 
 export function Header({ onPublish, currentDocument, user, onSignOut }: HeaderProps) {
   const [isDark, setIsDark] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const toggleTheme = () => {
     setIsDark(!isDark)
@@ -92,7 +94,7 @@ export function Header({ onPublish, currentDocument, user, onSignOut }: HeaderPr
               {user?.email || 'User'}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setSettingsOpen(true)}>
               <Settings className="h-4 w-4 mr-2" />
               Settings
             </DropdownMenuItem>
@@ -103,6 +105,13 @@ export function Header({ onPublish, currentDocument, user, onSignOut }: HeaderPr
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      <SettingsDialog 
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        user={user}
+        onSignOut={onSignOut}
+      />
     </header>
   )
 }
