@@ -7,36 +7,18 @@ import {
   Search
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import { useState, useEffect } from 'react'
-import { blink } from '@/blink/client'
-import type { Document } from '@/types/document'
+import { useState } from 'react'
+import type { Document } from '@/lib/database'
 
 interface SidebarProps {
+  documents: Document[]
+  currentDocument: Document | null
   onDocumentSelect: (doc: Document) => void
   onNewDocument: () => void
-  currentDocumentId?: string
 }
 
-export function Sidebar({ onDocumentSelect, onNewDocument, currentDocumentId }: SidebarProps) {
-  const [documents, setDocuments] = useState<Document[]>([])
+export function Sidebar({ documents, currentDocument, onDocumentSelect, onNewDocument }: SidebarProps) {
   const [searchQuery, setSearchQuery] = useState('')
-
-  useEffect(() => {
-    loadDocuments()
-  }, [])
-
-  const loadDocuments = async () => {
-    try {
-      const user = await blink.auth.me()
-      const docs = await blink.db.documents.list({
-        where: { user_id: user.id },
-        orderBy: { updated_at: 'desc' }
-      })
-      setDocuments(docs)
-    } catch (error) {
-      console.error('Failed to load documents:', error)
-    }
-  }
 
   const filteredDocuments = documents.filter(doc =>
     doc.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -72,7 +54,7 @@ export function Sidebar({ onDocumentSelect, onNewDocument, currentDocumentId }: 
             filteredDocuments.map((doc) => (
               <Button
                 key={doc.id}
-                variant={currentDocumentId === doc.id ? "secondary" : "ghost"}
+                variant={currentDocument?.id === doc.id ? "secondary" : "ghost"}
                 className="w-full justify-start mb-1 h-auto py-2"
                 onClick={() => onDocumentSelect(doc)}
               >

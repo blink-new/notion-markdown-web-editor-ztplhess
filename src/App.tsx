@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { blink, supabase } from '@/blink/client'
+import { supabase } from '@/blink/client'
 import { db, type Document } from '@/lib/database'
 import { AuthForm } from '@/components/auth/AuthForm'
 import { Header } from '@/components/layout/Header'
