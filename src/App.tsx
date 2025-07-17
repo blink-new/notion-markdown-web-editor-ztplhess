@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase, db, type Document } from '@/lib/supabase'
+import { blink } from '@/blink/client'
+import { db, type Document } from '@/lib/database'
 import { Header } from '@/components/layout/Header'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { BlockEditor } from '@/components/editor/BlockEditor'
 import { EditorModeToggle } from '@/components/editor/EditorModeToggle'
 import { MarkdownEditor } from '@/components/editor/MarkdownEditor'
-import { AuthForm } from '@/components/auth/AuthForm'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -26,24 +26,13 @@ function App() {
   const [publishDescription, setPublishDescription] = useState('')
 
   useEffect(() => {
-    // Initialize Supabase auth
-    const initAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      setUser(session?.user || null)
-      setLoading(false)
-    }
+    // Initialize Blink auth
+    const unsubscribe = blink.auth.onAuthStateChanged((state) => {
+      setUser(state.user)
+      setLoading(state.isLoading)
+    })
 
-    initAuth()
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setUser(session?.user || null)
-        setLoading(false)
-      }
-    )
-
-    return () => subscription.unsubscribe()
+    return unsubscribe
   }, [])
 
   const loadDocuments = useCallback(async () => {
@@ -181,48 +170,9 @@ function App() {
     }
   }
 
-  const signIn = async (email: string, password: string) => {
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      })
-      if (error) throw error
-    } catch (error) {
-      console.error('Error signing in:', error)
-      toast({
-        title: "Error",
-        description: "Failed to sign in",
-        variant: "destructive"
-      })
-    }
-  }
-
-  const signUp = async (email: string, password: string) => {
-    try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password
-      })
-      if (error) throw error
-      toast({
-        title: "Success",
-        description: "Account created successfully!"
-      })
-    } catch (error) {
-      console.error('Error signing up:', error)
-      toast({
-        title: "Error",
-        description: "Failed to create account",
-        variant: "destructive"
-      })
-    }
-  }
-
   const signOut = async () => {
     try {
-      const { error } = await supabase.auth.signOut()
-      if (error) throw error
+      blink.auth.logout()
       setDocuments([])
       setCurrentDocument(null)
     } catch (error) {
@@ -242,7 +192,17 @@ function App() {
   }
 
   if (!user) {
-    return <AuthForm onSignIn={signIn} onSignUp={signUp} />
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold mb-4">Welcome to Notion Editor</h1>
+          <p className="text-gray-600 mb-6">Please sign in to continue</p>
+          <Button onClick={() => blink.auth.login()}>
+            Sign In
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
