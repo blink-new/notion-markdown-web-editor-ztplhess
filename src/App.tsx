@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
-import { blink } from '@/blink/client'
+import { blink, supabase } from '@/blink/client'
 import { db, type Document } from '@/lib/database'
+import { AuthForm } from '@/components/auth/AuthForm'
 import { Header } from '@/components/layout/Header'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { BlockEditor } from '@/components/editor/BlockEditor'
@@ -26,13 +27,23 @@ function App() {
   const [publishDescription, setPublishDescription] = useState('')
 
   useEffect(() => {
-    // Initialize Blink auth
-    const unsubscribe = blink.auth.onAuthStateChanged((state) => {
-      setUser(state.user)
-      setLoading(state.isLoading)
-    })
+    // Initialize Supabase auth
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setUser(session?.user || null)
+      setLoading(false)
+    }
 
-    return unsubscribe
+    getSession()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setUser(session?.user || null)
+        setLoading(false)
+      }
+    )
+
+    return () => subscription.unsubscribe()
   }, [])
 
   const loadDocuments = useCallback(async () => {
@@ -46,7 +57,7 @@ function App() {
         setCurrentDocument(docs[0])
       }
     } catch (error) {
-      console.error('Error loading documents:', error)
+      console.error('Failed to load documents:', error)
       toast({
         title: "Error",
         description: "Failed to load documents",
@@ -172,7 +183,7 @@ function App() {
 
   const signOut = async () => {
     try {
-      blink.auth.logout()
+      await supabase.auth.signOut()
       setDocuments([])
       setCurrentDocument(null)
     } catch (error) {
@@ -192,17 +203,7 @@ function App() {
   }
 
   if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold mb-4">Welcome to Notion Editor</h1>
-          <p className="text-gray-600 mb-6">Please sign in to continue</p>
-          <Button onClick={() => blink.auth.login()}>
-            Sign In
-          </Button>
-        </div>
-      </div>
-    )
+    return <AuthForm />
   }
 
   return (

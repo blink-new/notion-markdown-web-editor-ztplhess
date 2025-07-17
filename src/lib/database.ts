@@ -1,4 +1,4 @@
-import { blink } from '@/blink/client'
+import { supabase } from '@/blink/client'
 
 // Database types
 export interface Document {
@@ -67,47 +67,56 @@ export interface MediaFile {
   created_at: string
 }
 
-// Temporary localStorage-based storage until database is available
-const STORAGE_KEYS = {
-  DOCUMENTS: 'notion_editor_documents',
-  WEBSITES: 'notion_editor_websites',
-  MEDIA_FILES: 'notion_editor_media_files'
-}
-
-// Helper functions for database operations
+// Helper functions for database operations using Supabase
 export const db = {
   // Document operations
   async getDocuments(userId: string): Promise<Document[]> {
     try {
-      const stored = localStorage.getItem(STORAGE_KEYS.DOCUMENTS)
-      const allDocs: Document[] = stored ? JSON.parse(stored) : []
-      return allDocs
-        .filter(doc => doc.user_id === userId)
-        .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+      const { data, error } = await supabase
+        .from('documents')
+        .select('*')
+        .eq('user_id', userId)
+        .order('updated_at', { ascending: false })
+
+      if (error) {
+        console.error('Failed to load documents:', error)
+        throw error
+      }
+
+      return data || []
     } catch (error) {
       console.error('Error getting documents:', error)
-      return []
+      throw new Error('Failed to load documents')
     }
   },
 
   async getDocument(id: string): Promise<Document> {
     try {
-      const stored = localStorage.getItem(STORAGE_KEYS.DOCUMENTS)
-      const allDocs: Document[] = stored ? JSON.parse(stored) : []
-      const doc = allDocs.find(d => d.id === id)
-      if (!doc) {
+      const { data, error } = await supabase
+        .from('documents')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (error) {
+        console.error('Failed to get document:', error)
+        throw error
+      }
+
+      if (!data) {
         throw new Error('Document not found')
       }
-      return doc
+
+      return data
     } catch (error) {
+      console.error('Error getting document:', error)
       throw new Error('Document not found')
     }
   },
 
   async createDocument(document: Partial<Document>): Promise<Document> {
     try {
-      const newDoc: Document = {
-        id: crypto.randomUUID(),
+      const newDoc = {
         user_id: document.user_id!,
         title: document.title || 'Untitled Document',
         content: document.content || {},
@@ -120,54 +129,64 @@ export const db = {
         seo_description: document.seo_description || null,
         cover_image_url: document.cover_image_url || null,
         icon_emoji: document.icon_emoji || null,
-        position: document.position || 0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        position: document.position || 0
       }
 
-      const stored = localStorage.getItem(STORAGE_KEYS.DOCUMENTS)
-      const allDocs: Document[] = stored ? JSON.parse(stored) : []
-      allDocs.push(newDoc)
-      localStorage.setItem(STORAGE_KEYS.DOCUMENTS, JSON.stringify(allDocs))
-      
-      return newDoc
+      const { data, error } = await supabase
+        .from('documents')
+        .insert([newDoc])
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Failed to create document:', error)
+        throw error
+      }
+
+      return data
     } catch (error) {
+      console.error('Error creating document:', error)
       throw new Error('Failed to create document')
     }
   },
 
   async updateDocument(id: string, updates: Partial<Document>): Promise<Document> {
     try {
-      const stored = localStorage.getItem(STORAGE_KEYS.DOCUMENTS)
-      const allDocs: Document[] = stored ? JSON.parse(stored) : []
-      const docIndex = allDocs.findIndex(d => d.id === id)
-      
-      if (docIndex === -1) {
-        throw new Error('Document not found')
+      const { data, error } = await supabase
+        .from('documents')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Failed to update document:', error)
+        throw error
       }
 
-      const updatedDoc = {
-        ...allDocs[docIndex],
-        ...updates,
-        updated_at: new Date().toISOString()
-      }
-
-      allDocs[docIndex] = updatedDoc
-      localStorage.setItem(STORAGE_KEYS.DOCUMENTS, JSON.stringify(allDocs))
-      
-      return updatedDoc
+      return data
     } catch (error) {
+      console.error('Error updating document:', error)
       throw new Error('Failed to update document')
     }
   },
 
   async deleteDocument(id: string): Promise<void> {
     try {
-      const stored = localStorage.getItem(STORAGE_KEYS.DOCUMENTS)
-      const allDocs: Document[] = stored ? JSON.parse(stored) : []
-      const filteredDocs = allDocs.filter(d => d.id !== id)
-      localStorage.setItem(STORAGE_KEYS.DOCUMENTS, JSON.stringify(filteredDocs))
+      const { error } = await supabase
+        .from('documents')
+        .delete()
+        .eq('id', id)
+
+      if (error) {
+        console.error('Failed to delete document:', error)
+        throw error
+      }
     } catch (error) {
+      console.error('Error deleting document:', error)
       throw new Error('Failed to delete document')
     }
   },
@@ -175,39 +194,50 @@ export const db = {
   // Website operations
   async getWebsites(userId: string): Promise<Website[]> {
     try {
-      const stored = localStorage.getItem(STORAGE_KEYS.WEBSITES)
-      const allSites: Website[] = stored ? JSON.parse(stored) : []
-      return allSites
-        .filter(site => site.user_id === userId)
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      const { data, error } = await supabase
+        .from('websites')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Failed to load websites:', error)
+        throw error
+      }
+
+      return data || []
     } catch (error) {
       console.error('Error getting websites:', error)
-      return []
+      throw new Error('Failed to load websites')
     }
   },
 
   async createWebsite(website: Partial<Website>): Promise<Website> {
     try {
-      const newSite: Website = {
-        id: crypto.randomUUID(),
+      const newSite = {
         user_id: website.user_id!,
         name: website.name || 'Untitled Website',
         description: website.description || null,
         custom_domain: website.custom_domain || null,
         subdomain: website.subdomain || null,
         theme_config: website.theme_config || {},
-        is_active: website.is_active || false,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        is_active: website.is_active || false
       }
 
-      const stored = localStorage.getItem(STORAGE_KEYS.WEBSITES)
-      const allSites: Website[] = stored ? JSON.parse(stored) : []
-      allSites.push(newSite)
-      localStorage.setItem(STORAGE_KEYS.WEBSITES, JSON.stringify(allSites))
-      
-      return newSite
+      const { data, error } = await supabase
+        .from('websites')
+        .insert([newSite])
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Failed to create website:', error)
+        throw error
+      }
+
+      return data
     } catch (error) {
+      console.error('Error creating website:', error)
       throw new Error('Failed to create website')
     }
   },
@@ -215,17 +245,29 @@ export const db = {
   // Media operations
   async uploadFile(file: File, path: string) {
     try {
-      const { publicUrl } = await blink.storage.upload(file, path, { upsert: true })
-      return { path, publicUrl }
+      const { data, error } = await supabase.storage
+        .from('media')
+        .upload(path, file, { upsert: true })
+
+      if (error) {
+        console.error('Failed to upload file:', error)
+        throw error
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('media')
+        .getPublicUrl(data.path)
+
+      return { path: data.path, publicUrl }
     } catch (error) {
+      console.error('Error uploading file:', error)
       throw new Error('Failed to upload file')
     }
   },
 
   async saveMediaFile(mediaFile: Partial<MediaFile>): Promise<MediaFile> {
     try {
-      const newFile: MediaFile = {
-        id: crypto.randomUUID(),
+      const newFile = {
         user_id: mediaFile.user_id!,
         document_id: mediaFile.document_id || null,
         filename: mediaFile.filename!,
@@ -234,17 +276,23 @@ export const db = {
         mime_type: mediaFile.mime_type || null,
         storage_path: mediaFile.storage_path!,
         public_url: mediaFile.public_url!,
-        alt_text: mediaFile.alt_text || null,
-        created_at: new Date().toISOString()
+        alt_text: mediaFile.alt_text || null
       }
 
-      const stored = localStorage.getItem(STORAGE_KEYS.MEDIA_FILES)
-      const allFiles: MediaFile[] = stored ? JSON.parse(stored) : []
-      allFiles.push(newFile)
-      localStorage.setItem(STORAGE_KEYS.MEDIA_FILES, JSON.stringify(allFiles))
-      
-      return newFile
+      const { data, error } = await supabase
+        .from('media_files')
+        .insert([newFile])
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Failed to save media file:', error)
+        throw error
+      }
+
+      return data
     } catch (error) {
+      console.error('Error saving media file:', error)
       throw new Error('Failed to save media file')
     }
   }
